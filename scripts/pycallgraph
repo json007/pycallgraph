@@ -10,7 +10,6 @@ import os
 
 import pycallgraph as __pycallgraph
 
-
 # Inject the current working directory so modules can be imported.
 sys.path.insert(0, os.getcwd())
 

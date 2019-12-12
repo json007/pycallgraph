@@ -34,7 +34,6 @@ class Config(object):
 
         # Grouping
         self.trace_grouper = Grouper()
-
         self.did_init = True
 
         # Update the defaults with anything from kwargs
@@ -89,11 +88,11 @@ class Config(object):
         arguments.
         '''
         usage = 'pycallgraph [options] OUTPUT_TYPE [output_options] -- ' \
-            'SCRIPT.py [ARG ...]'
+                'SCRIPT.py [ARG ...]'
 
         self.parser = argparse.ArgumentParser(
             description='Python Call Graph profiles a Python script and '
-            'generates a call graph visualization.', usage=usage,
+                        'generates a call graph visualization.', usage=usage,
         )
 
         self.add_ungrouped_arguments()
@@ -146,13 +145,13 @@ class Config(object):
         group.add_argument(
             '-i', '--include', default=[], action='append',
             help='Wildcard pattern of modules to include in the output. '
-            'You can have multiple include arguments.'
+                 'You can have multiple include arguments.'
         )
 
         group.add_argument(
             '-e', '--exclude', default=[], action='append',
             help='Wildcard pattern of modules to exclude in the output. '
-            'You can have multiple exclude arguments.'
+                 'You can have multiple exclude arguments.'
         )
 
         group.add_argument(

@@ -8,9 +8,9 @@ from .exceptions import PyCallGraphException
 
 class PyCallGraph(object):
     def __init__(self, output=None, config=None):
-        '''output can be a single Output instance or an iterable with many
-        of them.  Example usage:
-
+        '''
+        output can be a single Output instance or an iterable with many of them.
+        Example usage:
             PyCallGraph(output=GraphvizOutput(), config=Config())
         '''
         locale.setlocale(locale.LC_ALL, '')
@@ -43,8 +43,9 @@ class PyCallGraph(object):
             return SyncronousTracer
 
     def reset(self):
-        '''Resets all collected statistics.  This is run automatically by
-        start(reset=True) and when the class is initialized.
+        '''
+        Resets all collected statistics.
+        This is run automatically by start(reset=True) and when the class is initialized.
         '''
         self.tracer = self.get_tracer_class()(self.output, config=self.config)
 
@@ -52,13 +53,13 @@ class PyCallGraph(object):
             self.prepare_output(output)
 
     def start(self, reset=True):
-        '''Begins a trace.  Setting reset to True will reset all previously
-        recorded trace data.
+        '''
+        Begins a trace.
+        Setting reset to True will reset all previously recorded trace data.
         '''
         if not self.output:
             raise PyCallGraphException(
-                'No outputs declared. Please see the '
-                'examples in the online documentation.'
+                'No outputs declared. Please see the examples in the online documentation.'
             )
 
         if reset:
@@ -70,12 +71,11 @@ class PyCallGraph(object):
         self.tracer.start()
 
     def stop(self):
-        '''Stops the currently running trace, if any.'''
         self.tracer.stop()
 
     def done(self):
-        '''Stops the trace and tells the outputters to generate their
-        output.
+        '''
+        Stops the trace and tells the outputters to generate their output.
         '''
         self.stop()
 
@@ -84,7 +84,6 @@ class PyCallGraph(object):
     def generate(self):
         # If in threaded mode, wait for the processor thread to complete
         self.tracer.done()
-
         for output in self.output:
             output.done()
 

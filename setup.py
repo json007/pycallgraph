@@ -44,10 +44,10 @@ setup(
     data_files=data_files,
     use_2to3=True,
 
-    # TODO: Update download_url
-    download_url =
-    'http://pycallgraph.slowchop.com/files/download/pycallgraph-%s.tar.gz' % \
-        pycallgraph.__version__,
+    # # TODO: Update download_url
+    # download_url =
+    # 'http://pycallgraph.slowchop.com/files/download/pycallgraph-%s.tar.gz' % \
+    #     pycallgraph.__version__,
 
     # Testing
     tests_require=['pytest'],

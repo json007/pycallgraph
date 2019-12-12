@@ -2,7 +2,8 @@ from fnmatch import fnmatch
 
 
 class GlobbingFilter(object):
-    '''Filter module names using a set of globs.
+    '''
+    Filter module names using a set of globs.
 
     Objects are matched against the exclude list first, then the include list.
     Anything that passes through without matching either, is excluded.

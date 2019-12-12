@@ -9,16 +9,16 @@ import warnings
 import linecache
 import inspect
 import subprocess
-
-# TODO: provide alternative when multprocessing is not available
-try:
-    from multiprocessing import Process, Pipe
-except ImportError:
-    from multiprocessing.dummy import Process, Pipe
-
+from multiprocessing import Process, Pipe
+# # TODO: provide alternative when multprocessing is not available
+# try:
+#     from multiprocessing import Process, Pipe  # 进程
+# except ImportError:
+#     from multiprocessing.dummy import Process, Pipe  # 线程
 
 try:
     import psutil
+
 
     def _get_memory(pid):
         process = psutil.Process(pid)
@@ -41,7 +41,7 @@ except ImportError:
             # .. subprocess.check_output appeared in 2.7, using Popen ..
             # .. for backwards compatibility ..
             out = subprocess.Popen(['ps', 'v', '-p', str(pid)],
-                  stdout=subprocess.PIPE).communicate()[0].split(b'\n')
+                                   stdout=subprocess.PIPE).communicate()[0].split(b'\n')
             try:
                 vsz_index = out[0].split().index(b'RSS')
                 return float(out[1].split()[vsz_index]) / 1024
@@ -75,7 +75,6 @@ class Timer(Process):
 
 
 def memory_usage(proc=-1, interval=0.0, timeout=None):
-
     """
     Return the memory usage of a process or piece of code
 
@@ -129,8 +128,8 @@ def memory_usage(proc=-1, interval=0.0, timeout=None):
             n_args -= len(aspec.defaults)
         if n_args != len(args):
             raise ValueError(
-            'Function expects %s value(s) but %s where given'
-            % (n_args, len(args)))
+                'Function expects %s value(s) but %s where given'
+                % (n_args, len(args)))
 
         child_conn, parent_conn = Pipe()  # this will store Timer's results
         p = Timer(os.getpid(), interval, child_conn)
@@ -163,6 +162,7 @@ def memory_usage(proc=-1, interval=0.0, timeout=None):
             ret.append(_get_memory(proc))
             time.sleep(interval)
     return ret
+
 
 # ..
 # .. utility functions for line-by-line ..
@@ -230,6 +230,7 @@ class LineProfiler:
             finally:
                 self.disable_by_count()
             return result
+
         return f
 
     def run(self, cmd):
@@ -418,21 +419,25 @@ def magic_mprun(self, parameter_s=''):
     """
     try:
         from StringIO import StringIO
-    except ImportError: # Python 3.x
+    except ImportError:  # Python 3.x
         from io import StringIO
 
+    from IPython.core.page import page
+    from IPython.utils.ipstruct import Struct
+    from IPython.core.error import UsageError
+    # zhangxingjun
     # Local imports to avoid hard dependency.
-    from distutils.version import LooseVersion
-    import IPython
-    ipython_version = LooseVersion(IPython.__version__)
-    if ipython_version < '0.11':
-        from IPython.genutils import page
-        from IPython.ipstruct import Struct
-        from IPython.ipapi import UsageError
-    else:
-        from IPython.core.page import page
-        from IPython.utils.ipstruct import Struct
-        from IPython.core.error import UsageError
+    # from distutils.version import LooseVersion
+    # import IPython
+    # ipython_version = LooseVersion(IPython.__version__)
+    # if ipython_version < '0.11':
+    #     from IPython.genutils import page
+    #     from IPython.ipstruct import Struct
+    #     from IPython.ipapi import UsageError
+    # else:
+    #     from IPython.core.page import page
+    #     from IPython.utils.ipstruct import Struct
+    #     from IPython.core.error import UsageError
 
     # Escape quote markers.
     opts_def = Struct(T=[''], f=[])
@@ -449,17 +454,19 @@ def magic_mprun(self, parameter_s=''):
             funcs.append(eval(name, global_ns, local_ns))
         except Exception as e:
             raise UsageError('Could not find function %r.\n%s: %s' % (name,
-                e.__class__.__name__, e))
+                                                                      e.__class__.__name__, e))
 
     profile = LineProfiler()
     for func in funcs:
         profile(func)
 
-    # Add the profiler to the builtins for @profile.
-    try:
-        import builtins
-    except ImportError:  # Python 3x
-        import __builtin__ as builtins
+    # # Add the profiler to the builtins for @profile.
+    # zhangxingjun
+    # try:
+    #     import builtins
+    # except ImportError:  # Python 3x
+    #     import __builtin__ as builtins
+    import builtins #builtins是个内建模块 ，应该不用import的吧
 
     if 'profile' in builtins.__dict__:
         had_profile = True
@@ -477,7 +484,7 @@ def magic_mprun(self, parameter_s=''):
             message = "*** SystemExit exception caught in code being profiled."
         except KeyboardInterrupt:
             message = ("*** KeyboardInterrupt exception caught in code being "
-                "profiled.")
+                       "profiled.")
     finally:
         if had_profile:
             builtins.__dict__['profile'] = old_profile
@@ -488,11 +495,12 @@ def magic_mprun(self, parameter_s=''):
     output = stdout_trap.getvalue()
     output = output.rstrip()
 
-    if ipython_version < '0.11':
-        page(output, screen_lines=self.shell.rc.screen_length)
-    else:
-        page(output)
-    print(message,)
+    # if ipython_version < '0.11':
+    #     page(output, screen_lines=self.shell.rc.screen_length)
+    # else:
+    #     page(output)
+    page(output)
+    print(message, )
 
     text_file = opts.T[0]
     if text_file:
@@ -512,6 +520,7 @@ def _func_exec(stmt, ns):
     # helper for magic_memit, just a function proxy for the exec
     # statement
     exec(stmt, ns)
+
 
 # a timeit-style %memit magic for IPython
 def magic_memit(self, line=''):
@@ -579,24 +588,27 @@ def profile(func, stream=None):
     """
     Decorator that will run the function and print a line-by-line profile
     """
+
     def wrapper(*args, **kwargs):
         prof = LineProfiler()
         val = prof(func)(*args, **kwargs)
         show_results(prof, stream=stream)
         return val
+
     return wrapper
 
 
 if __name__ == '__main__':
     from optparse import OptionParser
+
     parser = OptionParser(usage=_CMD_USAGE, version=__version__)
     parser.disable_interspersed_args()
     parser.add_option("--pdb-mmem", dest="max_mem", metavar="MAXMEM",
-        type="float", action="store",
-        help="step into the debugger when memory exceeds MAXMEM")
+                      type="float", action="store",
+                      help="step into the debugger when memory exceeds MAXMEM")
     parser.add_option('--precision', dest="precision", type="int",
-        action="store", default=3,
-        help="precision of memory output in number of significant digits")
+                      action="store", default=3,
+                      help="precision of memory output in number of significant digits")
 
     if not sys.argv[1:]:
         parser.print_help()
@@ -607,18 +619,26 @@ if __name__ == '__main__':
     prof = LineProfiler(max_mem=options.max_mem)
     __file__ = _find_script(args[0])
     try:
-        if sys.version_info[0] < 3:
-            import __builtin__
-            __builtin__.__dict__['profile'] = prof
-            ns = locals()
-            ns['profile'] = prof # shadow the profile decorator defined above
-            execfile(__file__, ns, ns)
-        else:
-            import builtins
-            builtins.__dict__['profile'] = prof
-            ns = locals()
-            ns['profile'] = prof # shadow the profile decorator defined above
-            exec(compile(open(__file__).read(), __file__, 'exec'), ns,
-                                                                   globals())
+        # if sys.version_info[0] < 3:
+        #     import __builtin__
+        #
+        #     __builtin__.__dict__['profile'] = prof
+        #     ns = locals()
+        #     ns['profile'] = prof  # shadow the profile decorator defined above
+        #     execfile(__file__, ns, ns)
+        # else:
+        #     import builtins
+        #
+        #     builtins.__dict__['profile'] = prof
+        #     ns = locals()
+        #     ns['profile'] = prof  # shadow the profile decorator defined above
+        #     exec(compile(open(__file__).read(), __file__, 'exec'), ns, globals())
+        # zhangxingjun
+        import builtins
+
+        builtins.__dict__['profile'] = prof
+        ns = locals()
+        ns['profile'] = prof  # shadow the profile decorator defined above
+        exec(compile(open(__file__).read(), __file__, 'exec'), ns, globals())
     finally:
         show_results(prof, precision=options.precision)

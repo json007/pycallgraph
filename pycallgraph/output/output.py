@@ -56,8 +56,9 @@ class Output(object):
         return '{0}'.format(edge.calls.value)
 
     def sanity_check(self):
-        '''Basic checks for certain libraries or external applications.  Raise
-        or warn if there is a problem.
+        '''
+        Basic checks for certain libraries or external applications.
+        Raise or warn if there is a problem.
         '''
         pass
 
@@ -93,8 +94,7 @@ class Output(object):
         if find_executable(cmd):
             return
 
-        raise PyCallGraphException(
-            'The command "{0}" is required to be in your path.'.format(cmd))
+        raise PyCallGraphException('The command "{0}" is required to be in your path.'.format(cmd))
 
     def normalize_path(self, path):
         regex_user_expand = re.compile('\A~')

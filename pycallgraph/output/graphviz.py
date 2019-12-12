@@ -18,7 +18,7 @@ class GraphvizOutput(Output):
         self.output_file = 'pycallgraph.png'
         self.output_type = 'png'
         self.font_name = 'Verdana'
-        self.font_size = 7
+        self.font_size = 8
         self.group_font_size = 10
         self.group_border_color = Color(0, 0, 0, 0.8)
 
@@ -48,7 +48,7 @@ class GraphvizOutput(Output):
             '-f', '--output-format', type=str, default=defaults.output_type,
             dest='output_type',
             help='Image format to produce, e.g. png, ps, dot, etc. '
-            'See http://www.graphviz.org/doc/info/output.html for more.',
+                 'See http://www.graphviz.org/doc/info/output.html for more.',
         )
 
         subparser.add_argument(
@@ -101,24 +101,18 @@ class GraphvizOutput(Output):
         with os.fdopen(fd, 'w') as f:
             f.write(source)
 
-        cmd = '"{0}" -T{1} -o{2} {3}'.format(
-            self.tool, self.output_type, self.output_file, temp_name
-        )
+        cmd = '"{0}" -T{1} -o{2} {3}'.format(self.tool, self.output_type, self.output_file, temp_name)
 
         self.verbose('Executing: {0}'.format(cmd))
         try:
             proc = sub.Popen(cmd, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
             ret, output = proc.communicate()
             if ret:
-                raise PyCallGraphException(
-                    'The command "%(cmd)s" failed with error '
-                    'code %(ret)i.' % locals())
+                raise PyCallGraphException('The command "%(cmd)s" failed with error code %(ret)i.' % locals())
         finally:
             os.unlink(temp_name)
 
-        self.verbose('Generated {0} with {1} nodes.'.format(
-            self.output_file, len(self.processor.func_count),
-        ))
+        self.verbose('Generated {0} with {1} nodes.'.format(self.output_file, len(self.processor.func_count)))
 
     def generate(self):
         '''Returns a string with the contents of a DOT file for Graphviz to
