@@ -1,7 +1,7 @@
 from fnmatch import fnmatch
 
 
-class GlobbingFilter(object):
+class GlobbingFilter:
     '''
     Filter module names using a set of globs.
 

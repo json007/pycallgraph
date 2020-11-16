@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
 from os import path
-from setuptools import setup
 import sys
-
+from setuptools import setup
 from setuptools.command.test import test as TestCommand
-
 import pycallgraph
 
 # Only install the man page if the correct directory exists
@@ -60,9 +58,7 @@ setup(
         'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.8',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Testing',
         'Topic :: Software Development :: Debuggers',

@@ -1,12 +1,11 @@
 import argparse
 import sys
-
 from .output import outputters
 from .globbing_filter import GlobbingFilter
 from .grouper import Grouper
 
 
-class Config(object):
+class Config:
     '''Handles configuration settings for pycallgraph, tracer, and each output
     module.  It also handles command line arguments.
     '''
@@ -26,10 +25,20 @@ class Config(object):
         self.include_stdlib = False
         self.include_pycallgraph = False
         self.max_depth = 99999
-
         self.trace_filter = GlobbingFilter(
-            exclude=['pycallgraph.*'],
-            include=['*'],
+            exclude=['pycallgraph.*',
+            'pandas.*',
+            'numpy.*',
+            '_ImportLockContext*',
+            'SourceFileLoader.*',
+            'ModuleSpec.*',
+            'dateutil.*',
+            'featuretools.primitives.*',
+            '__main__',
+            'featuretools.demo.mock_customer.load_mock_customer',
+            'featuretools.demo.mock_customer.<listcomp>',
+            ],
+            include=['featuretools.*'],
         )
 
         # Grouping
@@ -37,8 +46,7 @@ class Config(object):
         self.did_init = True
 
         # Update the defaults with anything from kwargs
-        [setattr(self, k, v) for k, v in kwargs.iteritems()]
-
+        [setattr(self, k, v) for k, v in kwargs.items()]
         self.create_parser()
 
     def log_verbose(self, text):

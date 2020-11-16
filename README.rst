@@ -2,12 +2,10 @@
     :target: http://unmaintained.tech/
     :alt: No Maintenance Intended
 
-Project Abandoned
+声明
 #################
 
-Many apologies. I've stopped maintaining this project due to personal time constraints. `Blog post <https://geraldkaszuba.com/retiring-projects/>`_ with more information.
-
-I'm happy to forward users to any new forks, or to discuss PyPI ownership.
+forked from https://github.com/gak/pycallgraph .  原项目没人维护了，所以新建个自己维护自己用。
 
 Python Call Graph
 #################
@@ -47,7 +45,7 @@ The documentation needs some work stiil. Feel free to contribute :)
 Features
 ========
 
-* Support for Python 2.7+ and Python 3.3+.
+* Support for Python 3.8+.
 * Static visualizations of the call graph using various tools such as Graphviz and Gephi.
 * Execute pycallgraph from the command line or import it in your code.
 * Customisable colors. You can programatically set the colors based on number of calls, time taken, memory usage, etc.

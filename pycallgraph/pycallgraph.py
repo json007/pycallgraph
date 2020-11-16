@@ -1,12 +1,14 @@
 import locale
 
-from .output import Output
+# from .output import Output
+from .output import GraphvizOutput
 from .config import Config
 from .tracer import AsyncronousTracer, SyncronousTracer
 from .exceptions import PyCallGraphException
 
 
-class PyCallGraph(object):
+# class PyCallGraph(object):
+class PyCallGraph:
     def __init__(self, output=None, config=None):
         '''
         output can be a single Output instance or an iterable with many of them.
@@ -15,12 +17,13 @@ class PyCallGraph(object):
         '''
         locale.setlocale(locale.LC_ALL, '')
 
-        if output is None:
-            self.output = []
-        elif isinstance(output, Output):
-            self.output = [output]
-        else:
-            self.output = output
+        # if output is None:
+        #     self.output = []
+        # elif isinstance(output, Output):
+        #     self.output = [output]
+        # else:
+        #     self.output = output
+        self.output = [GraphvizOutput()]
 
         self.config = config or Config()
 
@@ -48,7 +51,6 @@ class PyCallGraph(object):
         This is run automatically by start(reset=True) and when the class is initialized.
         '''
         self.tracer = self.get_tracer_class()(self.output, config=self.config)
-
         for output in self.output:
             self.prepare_output(output)
 

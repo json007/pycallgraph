@@ -5,52 +5,24 @@ __version__ = '0.25'
 _CMD_USAGE = "python -m memory_profiler script_file.py"
 
 import time, sys, os, pdb
-import warnings
 import linecache
 import inspect
 import subprocess
 from multiprocessing import Process, Pipe
-# # TODO: provide alternative when multprocessing is not available
-# try:
-#     from multiprocessing import Process, Pipe  # 进程
-# except ImportError:
-#     from multiprocessing.dummy import Process, Pipe  # 线程
 
 try:
     import psutil
-
-
-    def _get_memory(pid):
-        process = psutil.Process(pid)
-        try:
-            mem = float(process.get_memory_info()[0]) / (1024 ** 2)
-        except psutil.AccessDenied:
-            mem = -1
-        return mem
-
-
 except ImportError:
+    raise NotImplementedError('The psutil module not found.')
 
-    warnings.warn("psutil module not found. memory_profiler will be slow")
 
-    if os.name == 'posix':
-        def _get_memory(pid):
-            # ..
-            # .. memory usage in MB ..
-            # .. this should work on both Mac and Linux ..
-            # .. subprocess.check_output appeared in 2.7, using Popen ..
-            # .. for backwards compatibility ..
-            out = subprocess.Popen(['ps', 'v', '-p', str(pid)],
-                                   stdout=subprocess.PIPE).communicate()[0].split(b'\n')
-            try:
-                vsz_index = out[0].split().index(b'RSS')
-                return float(out[1].split()[vsz_index]) / 1024
-            except:
-                return -1
-    else:
-        raise NotImplementedError('The psutil module is required for non-unix '
-                                  'platforms')
-
+def _get_memory(pid):
+    process = psutil.Process(pid)
+    try:
+        mem = float(process.get_memory_info()[0]) / (1024 ** 2)
+    except psutil.AccessDenied:
+        mem = -1
+    return mem
 
 class Timer(Process):
     """
@@ -127,9 +99,7 @@ def memory_usage(proc=-1, interval=0.0, timeout=None):
         if aspec.defaults is not None:
             n_args -= len(aspec.defaults)
         if n_args != len(args):
-            raise ValueError(
-                'Function expects %s value(s) but %s where given'
-                % (n_args, len(args)))
+            raise ValueError('Function expects %s value(s) but %s where given' % (n_args, len(args)))
 
         child_conn, parent_conn = Pipe()  # this will store Timer's results
         p = Timer(os.getpid(), interval, child_conn)
@@ -212,8 +182,7 @@ class LineProfiler:
             code = func.__code__
         except AttributeError:
             import warnings
-            warnings.warn("Could not extract a code object for the object %r"
-                          % (func,))
+            warnings.warn("Could not extract a code object for the object %r" % (func))
             return
         if code not in self.code_map:
             self.code_map[code] = {}
@@ -350,8 +319,7 @@ def show_results(prof, stream=None, precision=3):
                         len(sub_lines))
         lines_normalized = {}
 
-        header = template.format('Line #', 'Mem usage', 'Increment',
-                                 'Line Contents')
+        header = template.format('Line #', 'Mem usage', 'Increment', 'Line Contents')
         stream.write(header + '\n')
         stream.write('=' * len(header) + '\n')
         # move everything one frame up
@@ -417,27 +385,10 @@ def magic_mprun(self, parameter_s=''):
 
     -r: return the LineProfiler object after it has completed profiling.
     """
-    try:
-        from StringIO import StringIO
-    except ImportError:  # Python 3.x
-        from io import StringIO
-
+    from io import StringIO
     from IPython.core.page import page
     from IPython.utils.ipstruct import Struct
     from IPython.core.error import UsageError
-    # zhangxingjun
-    # Local imports to avoid hard dependency.
-    # from distutils.version import LooseVersion
-    # import IPython
-    # ipython_version = LooseVersion(IPython.__version__)
-    # if ipython_version < '0.11':
-    #     from IPython.genutils import page
-    #     from IPython.ipstruct import Struct
-    #     from IPython.ipapi import UsageError
-    # else:
-    #     from IPython.core.page import page
-    #     from IPython.utils.ipstruct import Struct
-    #     from IPython.core.error import UsageError
 
     # Escape quote markers.
     opts_def = Struct(T=[''], f=[])
@@ -453,8 +404,7 @@ def magic_mprun(self, parameter_s=''):
         try:
             funcs.append(eval(name, global_ns, local_ns))
         except Exception as e:
-            raise UsageError('Could not find function %r.\n%s: %s' % (name,
-                                                                      e.__class__.__name__, e))
+            raise UsageError('Could not find function %r.\n%s: %s' % (name, e.__class__.__name__, e))
 
     profile = LineProfiler()
     for func in funcs:
@@ -495,19 +445,14 @@ def magic_mprun(self, parameter_s=''):
     output = stdout_trap.getvalue()
     output = output.rstrip()
 
-    # if ipython_version < '0.11':
-    #     page(output, screen_lines=self.shell.rc.screen_length)
-    # else:
-    #     page(output)
     page(output)
-    print(message, )
+    print(message)
 
     text_file = opts.T[0]
     if text_file:
         with open(text_file, 'w') as pfile:
             pfile.write(output)
-        print('\n*** Profile printout saved to text file %s. %s' % (text_file,
-                                                                    message))
+        print('\n*** Profile printout saved to text file %s. %s' % (text_file, message))
 
     return_value = None
     if 'r' in opts:
@@ -619,21 +564,6 @@ if __name__ == '__main__':
     prof = LineProfiler(max_mem=options.max_mem)
     __file__ = _find_script(args[0])
     try:
-        # if sys.version_info[0] < 3:
-        #     import __builtin__
-        #
-        #     __builtin__.__dict__['profile'] = prof
-        #     ns = locals()
-        #     ns['profile'] = prof  # shadow the profile decorator defined above
-        #     execfile(__file__, ns, ns)
-        # else:
-        #     import builtins
-        #
-        #     builtins.__dict__['profile'] = prof
-        #     ns = locals()
-        #     ns['profile'] = prof  # shadow the profile decorator defined above
-        #     exec(compile(open(__file__).read(), __file__, 'exec'), ns, globals())
-        # zhangxingjun
         import builtins
 
         builtins.__dict__['profile'] = prof

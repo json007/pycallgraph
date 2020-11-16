@@ -1,6 +1,7 @@
 import inspect
 import sys
 import time
+from distutils.sysconfig import get_python_lib
 from collections import defaultdict
 from threading import Thread
 from queue import Queue, Empty
@@ -64,6 +65,7 @@ class TraceProcessor(Thread):
         self.config = config
         self.updatables = [a for a in self.outputs if a.should_update()]
         self.init_trace_data()
+        # self.init_libpath()
         today = time.strftime("%Y%m%d", time.localtime())
         self.log = open(f"/mnt/d/code/pycallgraph/{today}.log", "w")
 
@@ -91,8 +93,20 @@ class TraceProcessor(Thread):
         self.call_stack_memory_in = []
         self.call_stack_memory_out = []
 
+    # def init_libpath(self):
+    #     self.lib_path = get_python_lib() # get_python_lib(standard_lib=True, plat_specific=True)
+    #     # zhangxingjun 分为内置库、标准库、三方库、虚拟环境
+    #     # '/home/jumproot/miniconda3/lib/python3.8/site-packages' 这是系统的包
+    # https://docs.python.org/zh-cn/3/library/functions.html 内置函数  import  builtins  dir(builtins)
+    #     # 虚拟环境的在 env/Lib/site-packages/ 下
+    #     # path = os.path.split(self.lib_path)
+    #     # if path[1] == 'site-packages':
+    #     #     self.lib_path = path[0]
+    #     # self.lib_path = self.lib_path.lower()
+
     def is_module_stdlib(self, file_name):
-        return file_name.lower().find('site-packages')<0  # 张行军 找不到site-packages则是标准库
+        return file_name.lower().find('site-packages')<0  # 张行军 找不到site-packages则是标准库，但是sys没有__file__属性
+
 
     def queue(self, frame, event, arg, memory):
         data = {
@@ -110,6 +124,7 @@ class TraceProcessor(Thread):
                 self.process(**data)
             except Empty:
                 pass
+            # self.process(**data) # 张行军 移到上面
 
     def done(self):
         while not self.trace_queue.empty():
@@ -119,6 +134,7 @@ class TraceProcessor(Thread):
 
     def process(self, frame, event, arg, memory=None):
         '''This function processes a trace result. Keeps track of relationships between calls.
+
         frame有以下属性
         f_back	前一个堆栈帧（朝向调用者），如果这是底部堆栈帧则为None
         f_code	在这个框架中执行的Code对象
@@ -129,13 +145,12 @@ class TraceProcessor(Thread):
         f_lasti	给出精确的指令（这是代码对象的字节码字符串的索引）
 
         然后通过 inspect.getmodule(code) 获取当前module class  func 详细信息，还可以获取堆栈信息
+
         event
         'call' 调用一个函数（或输入一些其他代码块）。调用全局跟踪函数; arg是None; 返回值指定本地跟踪功能。
         'line' 解释器即将执行新的代码行或重新执行循环的条件。调用本地跟踪功能; arg是 None; 返回值指定新的本地跟踪功能。有关Objects/lnotab_notes.txt其工作原理的详细说明，请参阅 。
         'return' 函数（或其他代码块）即将返回。调用本地跟踪功能; arg是将返回的值，或者None 事件是由引发的异常引起的。跟踪函数的返回值被忽略。
         'exception' 发生了一个例外。调用本地跟踪功能; arg是一个元组; 返回值指定新的本地跟踪功能。(exception, value, traceback)
-
-        python的类名返回太糟糕了， 此副本只处理某个包中的函数。
         '''
 
         if memory is not None and self.previous_event_return:
@@ -145,6 +160,7 @@ class TraceProcessor(Thread):
                 full_name, m = self.call_stack_memory_out.pop(-1)
             else:
                 full_name, m = (None, None)
+            # NOTE: Call stack is no longer the call stack that may be expected. Potentially need to store a copy of it.
             if full_name and m:
                 self.func_memory_out[full_name] +=  memory - m
                 self.func_memory_out_max = max(self.func_memory_out_max, self.func_memory_out[full_name])
@@ -172,6 +188,10 @@ class TraceProcessor(Thread):
             print(full_name, file=self.log)  # 张行军
 
             keep = True
+            isStdlib = False
+            if module and not self.config.include_stdlib and self.is_module_stdlib(module.__file__):
+                keep = False
+                isStdlib = True
             if len(self.call_stack) > self.config.max_depth:
                 keep = False
             if keep and self.config.trace_filter:
@@ -181,10 +201,8 @@ class TraceProcessor(Thread):
             if keep:
                 if self.call_stack:
                     # src_func = self.call_stack[-1]  # 从堆栈中获取调用者
-
-                    # 张行军 20191126，如果不保持的，记为''， 则后者从前面获取父节点，相当于在图中跳过该点，将前后节点连起来
-                    # 对于想终止后续的，而不是跳过的, 这种self.call_stack.append(None)
-                    # 最后绘图时都可以通过 keep==flase 判断
+                    # 张行军 20191126 ，如果不保持的 记为''， 则后者从前面获取父节点，相当于在图中跳过该点，将前后节点连起来
+                    # 对于keep==flase 的，可以进一步区分控制，比如遇到想终止后续的，而不是跳过的 ,这种self.call_stack.append(None)
                     src_func = None
                     i = len(self.call_stack)
                     while i > 0:
@@ -197,33 +215,35 @@ class TraceProcessor(Thread):
                             break
                 else:
                     src_func = None
-
                 self.call_dict[src_func][full_name] += 1
                 self.func_count[full_name] += 1
                 self.func_count_max = max(self.func_count_max, self.func_count[full_name])
                 self.call_stack.append(full_name)
-                self.call_stack_timer.append(time.time())
                 # print("----".join(self.call_stack), file=fo)  # 张行军
-
+                self.call_stack_timer.append(time.time())
                 if memory is not None:
                     self.call_stack_memory_in.append(memory)
                     self.call_stack_memory_out.append([full_name, memory])
             else:
-                self.call_stack.append('')  # 要想更丰富一点，应该扩展该list中item类型， 比如里面是个dict，
+                if isStdlib:
+                    self.call_stack.append(None)
+                else:
+                    self.call_stack.append('')
+                # self.call_stack.append('')  # 要想更丰富一点，应该扩展该list中item类型， 比如里面是个dict，
                 self.call_stack_timer.append(None)
 
         if event == 'return':
             self.previous_event_return = True
             if self.call_stack:
-                full_name = self.call_stack.pop() # pop(-1) 默认的index就是-1
+                full_name = self.call_stack.pop(-1)
                 if self.call_stack_timer:
-                    start_time = self.call_stack_timer.pop()
+                    start_time = self.call_stack_timer.pop(-1)
                 else:
                     start_time = None
                 if start_time:
                     self.func_time[full_name] += time.time() - start_time
                     self.func_time_max = max(self.func_time_max, self.func_time[full_name])
-
+                    
                 if memory is not None:
                     if self.call_stack_memory_in:
                         start_mem = self.call_stack_memory_in.pop(-1)
@@ -233,55 +253,52 @@ class TraceProcessor(Thread):
                         self.func_memory_in[full_name] += memory - start_mem
                         self.func_memory_in_max = max(self.func_memory_in_max, self.func_memory_in[full_name])
 
+
+    def __getstate__(self):
+        '''
+        Used for when creating a pickle. Certain instance variables can't pickled and aren't used anyway.
+        '''
+        odict = self.__dict__.copy()
+        dont_keep = [
+            'outputs',
+            'config',
+            'updatables',
+            'lib_path',
+        ]
+        for key in dont_keep:
+            del odict[key]
+        return odict
+
     def groups(self):
         grp = defaultdict(list)
         for node in self.nodes():
             grp[node.group].append(node)
-        for g in grp.items():
+        for g in grp.items():  # .iteritems():
             yield g
 
-    def nodes(self):
-        for func, calls in self.func_count.items():
-            func_new = self.drop_prefix(func) # zhangxingjun 
-            yield self.stat_group_from_func(func, func_new,calls)
-
-    def edges(self):
-        # 不keep应该有两种，一是该点之后的都不保留，二是跳过该点，所以可以在参数config.trace_filter.exclude中
-        for src_func, dests in self.call_dict.items():
-            if src_func:
-                src_func_new = self.drop_prefix(src_func) # zhangxingjun 
-                for dst_func, calls in dests.items():
-                    dst_func_new = self.drop_prefix(dst_func) # zhangxingjun 
-                    edge = self.stat_group_from_func(dst_func, dst_func_new, calls)
-                    edge.src_func = src_func_new
-                    edge.dst_func = dst_func_new
-                    yield edge
-
-    # def stat_group_from_func(self, func, calls):
-    #     stat_group = StatGroup()
-    #     stat_group.name = func
-    #     stat_group.group = self.config.trace_grouper(func)
-    #     stat_group.calls = Stat(calls, self.func_count_max)
-    #     stat_group.time = Stat(self.func_time.get(func, 0), self.func_time_max)
-    #     stat_group.memory_in = Stat(self.func_memory_in.get(func, 0), self.func_memory_in_max)
-    #     stat_group.memory_out = Stat(self.func_memory_in.get(func, 0), self.func_memory_in_max)
-    #     return stat_group
-    
-    def stat_group_from_func(self, func, func_new, calls):
+    def stat_group_from_func(self, func, calls):
         stat_group = StatGroup()
-        stat_group.name = func_new
-        stat_group.group = self.config.trace_grouper(func_new)
+        stat_group.name = func
+        stat_group.group = self.config.trace_grouper(func)
         stat_group.calls = Stat(calls, self.func_count_max)
         stat_group.time = Stat(self.func_time.get(func, 0), self.func_time_max)
         stat_group.memory_in = Stat(self.func_memory_in.get(func, 0), self.func_memory_in_max)
         stat_group.memory_out = Stat(self.func_memory_in.get(func, 0), self.func_memory_in_max)
         return stat_group
 
-    def drop_prefix(self, func):
-        if func[0:13] == 'featuretools.':
-            return func[13:]
-        return func
+    def nodes(self):
+        for func, calls in self.func_count.items():  # .iteritems():
+            yield self.stat_group_from_func(func, calls)
 
+    def edges(self):
+        # 不keep应该有两种，一是该点之后的都不保留，二是跳过该点，所以可以在参数config.trace_filter.exclude中
+        for src_func, dests in self.call_dict.items():  # .iteritems():
+            if src_func:
+                for dst_func, calls in dests.items():  # .iteritems():
+                    edge = self.stat_group_from_func(dst_func, calls)
+                    edge.src_func = src_func
+                    edge.dst_func = dst_func
+                    yield edge
 
 
 class Stat:
