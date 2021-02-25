@@ -88,7 +88,6 @@ class GraphvizOutput(Output):
 
     def done(self):
         source = self.generate()
-
         self.debug(source)
 
         fd, temp_name = tempfile.mkstemp()
@@ -96,7 +95,6 @@ class GraphvizOutput(Output):
             f.write(source)
 
         cmd = '"{0}" -T{1} -o{2} {3}'.format(self.tool, self.output_type, self.output_file, temp_name)
-
         self.verbose('Executing: {0}'.format(cmd))
         try:
             proc = sub.Popen(cmd, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
@@ -109,9 +107,7 @@ class GraphvizOutput(Output):
         self.verbose('Generated {0} with {1} nodes.'.format(self.output_file, len(self.processor.func_count)))
 
     def generate(self):
-        '''Returns a string with the contents of a DOT file for Graphviz to
-        parse.
-        '''
+        '''Returns a string with the contents of a DOT file for Graphviz to parse. '''
         indent_join = '\n' + ' ' * 12
 
         return textwrap.dedent('''\

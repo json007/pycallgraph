@@ -6,8 +6,9 @@ from .grouper import Grouper
 
 
 class Config:
-    '''Handles configuration settings for pycallgraph, tracer, and each output
-    module.  It also handles command line arguments.
+    '''
+    Handles configuration settings for pycallgraph, tracer, and each output module.
+    It also handles command line arguments.
     '''
 
     def __init__(self, **kwargs):
@@ -46,7 +47,7 @@ class Config:
         self.did_init = True
 
         # Update the defaults with anything from kwargs
-        [setattr(self, k, v) for k, v in kwargs.items()]
+        [setattr(self, k, v) for k, v in kwargs.items()] # 这里会覆盖上面的
         self.create_parser()
 
     def log_verbose(self, text):
@@ -58,8 +59,7 @@ class Config:
             print(text)
 
     def add_module_arguments(self, usage):
-        subparsers = self.parser.add_subparsers(
-            help='OUTPUT_TYPE', dest='output')
+        subparsers = self.parser.add_subparsers(help='OUTPUT_TYPE', dest='output')
         parent_parser = self.create_parent_parser()
 
         for name, cls in outputters.items():
@@ -92,15 +92,13 @@ class Config:
         )
 
     def create_parser(self):
-        '''Used by the pycallgraph command line interface to parse
-        arguments.
         '''
-        usage = 'pycallgraph [options] OUTPUT_TYPE [output_options] -- ' \
-                'SCRIPT.py [ARG ...]'
-
+        Used by the pycallgraph command line interface to parse arguments.
+        '''
+        usage = 'pycallgraph [options] OUTPUT_TYPE [output_options] -- SCRIPT.py [ARG ...]'
         self.parser = argparse.ArgumentParser(
-            description='Python Call Graph profiles a Python script and '
-                        'generates a call graph visualization.', usage=usage,
+            description='Python Call Graph profiles a Python script and  generates a call graph visualization.', 
+            usage=usage,
         )
 
         self.add_ungrouped_arguments()

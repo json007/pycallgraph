@@ -1,15 +1,12 @@
 import locale
-
-# from .output import Output
-from .output import GraphvizOutput
+from .output import Output
 from .config import Config
 from .tracer import AsyncronousTracer, SyncronousTracer
 from .exceptions import PyCallGraphException
+# import dill
 
-
-# class PyCallGraph(object):
 class PyCallGraph:
-    def __init__(self, output=None, config=None):
+    def __init__(self, output=None, config=None, tracker_log=None, package_prefix=None):
         '''
         output can be a single Output instance or an iterable with many of them.
         Example usage:
@@ -17,19 +14,21 @@ class PyCallGraph:
         '''
         locale.setlocale(locale.LC_ALL, '')
 
-        # if output is None:
-        #     self.output = []
-        # elif isinstance(output, Output):
-        #     self.output = [output]
-        # else:
-        #     self.output = output
-        self.output = [GraphvizOutput()]
+        if output is None:
+            self.output = []
+        elif isinstance(output, Output):
+            self.output = [output]
+        else:
+            self.output = output
 
         self.config = config or Config()
 
         configured_ouput = self.config.get_output()
         if configured_ouput:
             self.output.append(configured_ouput)
+
+        self.tracker_log = tracker_log
+        self.package_prefix = package_prefix
 
         self.reset()
 
@@ -50,7 +49,7 @@ class PyCallGraph:
         Resets all collected statistics.
         This is run automatically by start(reset=True) and when the class is initialized.
         '''
-        self.tracer = self.get_tracer_class()(self.output, config=self.config)
+        self.tracer = self.get_tracer_class()(self.output, config=self.config, package_prefix=self.package_prefix)
         for output in self.output:
             self.prepare_output(output)
 
@@ -76,18 +75,21 @@ class PyCallGraph:
         self.tracer.stop()
 
     def done(self):
-        '''
-        Stops the trace and tells the outputters to generate their output.
-        '''
+        '''Stops the trace and tells the outputters to generate their output.'''
         self.stop()
-
         self.generate()
 
     def generate(self):
         # If in threaded mode, wait for the processor thread to complete
         self.tracer.done()
+        # dill.dump(self.tracer, open(self.tracker_log,"wb")) # 张行军
         for output in self.output:
             output.done()
+
+    # def only_output(self):# 张行军
+    #     self.tracer = dill.load(open(self.tracker_log,"rb"))
+    #     for output in self.output:
+    #         output.done()
 
     def add_output(self, output):
         self.output.append(output)
@@ -97,3 +99,4 @@ class PyCallGraph:
         output.sanity_check()
         output.set_processor(self.tracer.processor)
         output.reset()
+

@@ -5,16 +5,11 @@ from collections import defaultdict
 from threading import Thread
 from queue import Queue, Empty
 from .util import Util
-# import os
-# from beeprint import pp,Config
-# bp_config = Config()
-# fo  = open("/Users/zhangxingjun/pycode/pycallgraph/p.log", "w")
-# bp_config.stream = fo
 
 class SyncronousTracer:
 
-    def __init__(self, outputs, config):
-        self.processor = TraceProcessor(outputs, config)
+    def __init__(self, outputs, config, package_prefix=None):
+        self.processor = TraceProcessor(outputs, config, package_prefix)
         self.config = config
 
     def tracer(self, frame, event, arg):
@@ -56,16 +51,21 @@ class TraceProcessor(Thread):
     Contains a callback used by sys.settrace, which collects information about function call count, time taken, etc.
     '''
 
-    def __init__(self, outputs, config):
+    def __init__(self, outputs, config, package_prefix=None):
         Thread.__init__(self)
         self.trace_queue = Queue()
         self.keep_going = True
-        self.outputs = outputs
         self.config = config
-        self.updatables = [a for a in self.outputs if a.should_update()]
+
+        self.outputs = outputs
+        self.updatables = [a for a in self.outputs if a.should_update()] # 这个类中，updatables和outputs 都没用上
+
         self.init_trace_data()
+
         today = time.strftime("%Y%m%d", time.localtime())
-        self.log = open(f"/mnt/d/code/pycallgraph/{today}.log", "w")
+        # self.log = open(f"/mnt/d/code/pycallgraph/{today}.log", "w")
+        # self.log = open(f"D:/code/pycallgraph/{today}.log", "w")
+        self.package_prefix = package_prefix
 
     def init_trace_data(self):
         self.previous_event_return = False
@@ -115,21 +115,22 @@ class TraceProcessor(Thread):
         while not self.trace_queue.empty():
             time.sleep(0.1)
         self.keep_going = False
-        self.log.close()
+        # self.log.close()
 
     def process(self, frame, event, arg, memory=None):
         '''This function processes a trace result. Keeps track of relationships between calls.
-        frame有以下属性
-        f_back	前一个堆栈帧（朝向调用者），如果这是底部堆栈帧则为None
-        f_code	在这个框架中执行的Code对象
-        f_locals	用于查找局部变量的字典
-        f_globals	用于全局变量
-        f_builtins	用于内置名称
-        f_restricted	表示该函数是否在限制执行模式下执行的标志
-        f_lasti	给出精确的指令（这是代码对象的字节码字符串的索引）
 
-        然后通过 inspect.getmodule(code) 获取当前module class  func 详细信息，还可以获取堆栈信息
-        event
+        frame有以下属性：
+            f_back	前一个堆栈帧（朝向调用者），如果这是底部堆栈帧则为None
+            f_code	在这个框架中执行的Code对象
+            f_locals	用于查找局部变量的字典
+            f_globals	用于全局变量
+            f_builtins	用于内置名称
+            f_restricted	表示该函数是否在限制执行模式下执行的标志
+            f_lasti	给出精确的指令（这是代码对象的字节码字符串的索引）
+        然后通过 inspect.getmodule(frame.f_code) 获取当前module class  func 详细信息，还可以获取堆栈信息
+
+        event有四种：
         'call' 调用一个函数（或输入一些其他代码块）。调用全局跟踪函数; arg是None; 返回值指定本地跟踪功能。
         'line' 解释器即将执行新的代码行或重新执行循环的条件。调用本地跟踪功能; arg是 None; 返回值指定新的本地跟踪功能。有关Objects/lnotab_notes.txt其工作原理的详细说明，请参阅 。
         'return' 函数（或其他代码块）即将返回。调用本地跟踪功能; arg是将返回的值，或者None 事件是由引发的异常引起的。跟踪函数的返回值被忽略。
@@ -169,32 +170,31 @@ class TraceProcessor(Thread):
                 func_name = '__main__'
             full_name_list.append(func_name)
             full_name = '.'.join(full_name_list)  # Create a readable representation of the current call
-            print(full_name, file=self.log)  # 张行军
+            # print(full_name, file=self.log)  # 张行军
 
             keep = True
             if len(self.call_stack) > self.config.max_depth:
                 keep = False
-            if keep and self.config.trace_filter:
-                keep = self.config.trace_filter(full_name)
+            # if keep and self.config.trace_filter:
+            #     keep = self.config.trace_filter(full_name)
 
             # Store the call information
             if keep:
                 if self.call_stack:
-                    # src_func = self.call_stack[-1]  # 从堆栈中获取调用者
-
-                    # 张行军 20191126，如果不保持的，记为''， 则后者从前面获取父节点，相当于在图中跳过该点，将前后节点连起来
-                    # 对于想终止后续的，而不是跳过的, 这种self.call_stack.append(None)
-                    # 最后绘图时都可以通过 keep==flase 判断
-                    src_func = None
-                    i = len(self.call_stack)
-                    while i > 0:
-                        i = i - 1
-                        if self.call_stack[i] is None:  # 先判断有没有要终止绘制后续的
-                            src_func = ''
-                            break
-                        if self.call_stack[i] != '':
-                            src_func = self.call_stack[i]
-                            break
+                    src_func = self.call_stack[-1]  # 从堆栈中获取调用者
+                    # # 张行军 20191126，如果不保持的，记为''， 则后者从前面获取父节点，相当于在图中跳过该点，将前后节点连起来
+                    # # 对于想终止后续的，而不是跳过的, 这种self.call_stack.append(None)
+                    # # 最后绘图时都可以通过 keep==flase 判断
+                    # src_func = None
+                    # i = len(self.call_stack)
+                    # while i > 0:
+                    #     i = i - 1
+                    #     if self.call_stack[i] is None:  # 先判断有没有要终止绘制后续的
+                    #         src_func = ''
+                    #         break
+                    #     if self.call_stack[i] != '':
+                    #         src_func = self.call_stack[i]
+                    #         break
                 else:
                     src_func = None
 
@@ -233,6 +233,9 @@ class TraceProcessor(Thread):
                         self.func_memory_in[full_name] += memory - start_mem
                         self.func_memory_in_max = max(self.func_memory_in_max, self.func_memory_in[full_name])
 
+
+#################### 下面都是在output.graphviz中调用的 #############################
+
     def groups(self):
         grp = defaultdict(list)
         for node in self.nodes():
@@ -242,20 +245,43 @@ class TraceProcessor(Thread):
 
     def nodes(self):
         for func, calls in self.func_count.items():
-            func_new = self.drop_prefix(func) # zhangxingjun 
-            yield self.stat_group_from_func(func, func_new,calls)
+            if self.config.trace_filter(func):# zhangxingjun 
+                func_new = self.drop_prefix(func) # zhangxingjun 
+                yield self.stat_group_from_func(func, func_new,calls)
 
     def edges(self):
         # 不keep应该有两种，一是该点之后的都不保留，二是跳过该点，所以可以在参数config.trace_filter.exclude中
         for src_func, dests in self.call_dict.items():
-            if src_func:
+            if src_func and self.config.trace_filter(src_func):
                 src_func_new = self.drop_prefix(src_func) # zhangxingjun 
                 for dst_func, calls in dests.items():
-                    dst_func_new = self.drop_prefix(dst_func) # zhangxingjun 
-                    edge = self.stat_group_from_func(dst_func, dst_func_new, calls)
-                    edge.src_func = src_func_new
-                    edge.dst_func = dst_func_new
-                    yield edge
+                    if self.config.trace_filter(dst_func):
+                        dst_func_new = self.drop_prefix(dst_func) # zhangxingjun 
+                        edge = self.stat_group_from_func(dst_func, dst_func_new, calls)
+                        edge.src_func = src_func_new
+                        edge.dst_func = dst_func_new
+                        yield edge
+
+    # def nodes(self):
+    #     for func, calls in self.func_count.items():
+    #         # yield self.stat_group_from_func(func, calls)
+    #         func_new = self.drop_prefix(func) # zhangxingjun 
+    #         yield self.stat_group_from_func(func, func_new,calls)
+
+    # def edges(self):
+    #     # 不keep应该有两种，一是该点之后的都不保留，二是跳过该点，所以可以在参数config.trace_filter.exclude中
+    #     for src_func, dests in self.call_dict.items():
+    #         if src_func:
+    #             src_func_new = self.drop_prefix(src_func) # zhangxingjun 
+    #             for dst_func, calls in dests.items():
+    #                 # edge = self.stat_group_from_func(dst_func, calls)
+    #                 # edge.src_func = src_func
+    #                 # edge.dst_func = dst_func
+    #                 dst_func_new = self.drop_prefix(dst_func) # zhangxingjun 
+    #                 edge = self.stat_group_from_func(dst_func, dst_func_new, calls)
+    #                 edge.src_func = src_func_new
+    #                 edge.dst_func = dst_func_new
+    #                 yield edge
 
     # def stat_group_from_func(self, func, calls):
     #     stat_group = StatGroup()
@@ -278,8 +304,9 @@ class TraceProcessor(Thread):
         return stat_group
 
     def drop_prefix(self, func):
-        if func[0:13] == 'featuretools.':
-            return func[13:]
+        l = len(self.package_prefix)
+        if func[0:l] ==  self.package_prefix: # 'pytorch_lightning.':
+            return func[l:]
         return func
 
 

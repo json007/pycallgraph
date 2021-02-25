@@ -1,12 +1,12 @@
 import re
 import os
 from distutils.spawn import find_executable
-
 from ..exceptions import PyCallGraphException
 from ..color import Color
 
 
-class Output(object):
+# class Output(object):
+class Output:
     '''Base class for all outputters.'''
 
     def __init__(self, **kwargs):
@@ -24,7 +24,6 @@ class Output(object):
         This is a quick hack to move the config variables set in Config into
         the output module config variables.
         '''
-        # for k, v in config.__dict__.iteritems():
         for k, v in config.__dict__.items():
             if hasattr(self, k) and callable(getattr(self, k)):
                 continue
@@ -78,9 +77,7 @@ class Output(object):
         pass
 
     def update(self):
-        '''Called periodically during a trace, but only when should_update is
-        set to True.
-        '''
+        '''Called periodically during a trace, but only when should_update is set to True. '''
         raise NotImplementedError('update')
 
     def should_update(self):
@@ -94,7 +91,6 @@ class Output(object):
     def ensure_binary(self, cmd):
         if find_executable(cmd):
             return
-
         raise PyCallGraphException('The command "{0}" is required to be in your path.'.format(cmd))
 
     def normalize_path(self, path):
@@ -119,6 +115,5 @@ class Output(object):
     @classmethod
     def add_output_file(cls, subparser, defaults, help):
         subparser.add_argument(
-            '-o', '--output-file', type=str, default=defaults.output_file,
-            help=help,
+            '-o', '--output-file', type=str, default=defaults.output_file, help=help,
         )

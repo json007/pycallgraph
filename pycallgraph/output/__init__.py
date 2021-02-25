@@ -9,6 +9,6 @@ from .pickle import PickleOutput
 
 outputters = collections.OrderedDict([
     ('graphviz', GraphvizOutput),
-    ('gephi', GephiOutput),
+    # ('gephi', GephiOutput),
     # ('ubigraph', UbigraphOutput),
 ])
