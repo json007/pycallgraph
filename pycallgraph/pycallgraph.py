@@ -3,10 +3,9 @@ from .output import Output
 from .config import Config
 from .tracer import AsyncronousTracer, SyncronousTracer
 from .exceptions import PyCallGraphException
-# import dill
 
 class PyCallGraph:
-    def __init__(self, output=None, config=None, tracker_log=None, package_prefix=None):
+    def __init__(self, output=None, config=None):
         '''
         output can be a single Output instance or an iterable with many of them.
         Example usage:
@@ -27,9 +26,6 @@ class PyCallGraph:
         if configured_ouput:
             self.output.append(configured_ouput)
 
-        self.tracker_log = tracker_log
-        self.package_prefix = package_prefix
-
         self.reset()
 
     def __enter__(self):
@@ -49,7 +45,7 @@ class PyCallGraph:
         Resets all collected statistics.
         This is run automatically by start(reset=True) and when the class is initialized.
         '''
-        self.tracer = self.get_tracer_class()(self.output, config=self.config, package_prefix=self.package_prefix)
+        self.tracer = self.get_tracer_class()(self.output, config=self.config)
         for output in self.output:
             self.prepare_output(output)
 
@@ -82,14 +78,18 @@ class PyCallGraph:
     def generate(self):
         # If in threaded mode, wait for the processor thread to complete
         self.tracer.done()
-        # dill.dump(self.tracer, open(self.tracker_log,"wb")) # 张行军
+        self.tracer.save() # save必须在prune前， 否则func_name改了后prune判断过滤，就无法判断了
+        self.tracer.prune()
+        self.tracer.save_func_name()
         for output in self.output:
             output.done()
 
-    # def only_output(self):# 张行军
-    #     self.tracer = dill.load(open(self.tracker_log,"rb"))
-    #     for output in self.output:
-    #         output.done()
+    def only_output(self):# 张行军
+        self.tracer.load()
+        self.tracer.prune()
+        # self.tracer.save_func_name() # 可以在每次prune后都更新func_name，方便后续分析
+        for output in self.output:
+            output.done()
 
     def add_output(self, output):
         self.output.append(output)

@@ -30,12 +30,6 @@ class Config:
             exclude=['pycallgraph.*',
             'pandas.*',
             'numpy.*',
-            '_ImportLockContext*',
-            'SourceFileLoader.*',
-            'ModuleSpec.*',
-            'dateutil.*',
-            'featuretools.primitives.*',
-            '__main__',
             'featuretools.demo.mock_customer.load_mock_customer',
             'featuretools.demo.mock_customer.<listcomp>',
             ],
@@ -45,6 +39,11 @@ class Config:
         # Grouping
         self.trace_grouper = Grouper()
         self.did_init = True
+
+        self.full_func_name_file = None
+        self.func_name_prune = None
+        self.package_prefix = None
+        self.tracker_log = None
 
         # Update the defaults with anything from kwargs
         [setattr(self, k, v) for k, v in kwargs.items()] # 这里会覆盖上面的

@@ -5,11 +5,13 @@ from collections import defaultdict
 from threading import Thread
 from queue import Queue, Empty
 from .util import Util
+from fnmatch import fnmatch
+import dill
 
 class SyncronousTracer:
 
-    def __init__(self, outputs, config, package_prefix=None):
-        self.processor = TraceProcessor(outputs, config, package_prefix)
+    def __init__(self, outputs, config):
+        self.processor = TraceProcessor(outputs, config)
         self.config = config
 
     def tracer(self, frame, event, arg):
@@ -30,6 +32,18 @@ class SyncronousTracer:
     def done(self):
         pass
 
+    def save(self):
+        self.processor.save()
+
+    def load(self):
+        self.processor.load()
+
+    def save_func_name(self):
+        self.processor.save_func_name()
+
+    def prune(self):
+        self.processor.prune()
+
 
 class AsyncronousTracer(SyncronousTracer):
 
@@ -45,13 +59,16 @@ class AsyncronousTracer(SyncronousTracer):
         self.processor.done()
         self.processor.join()
 
+    def prune(self):
+        self.processor.prune()
+
 
 class TraceProcessor(Thread):
     '''
     Contains a callback used by sys.settrace, which collects information about function call count, time taken, etc.
     '''
 
-    def __init__(self, outputs, config, package_prefix=None):
+    def __init__(self, outputs, config):
         Thread.__init__(self)
         self.trace_queue = Queue()
         self.keep_going = True
@@ -65,7 +82,7 @@ class TraceProcessor(Thread):
         today = time.strftime("%Y%m%d", time.localtime())
         # self.log = open(f"/mnt/d/code/pycallgraph/{today}.log", "w")
         # self.log = open(f"D:/code/pycallgraph/{today}.log", "w")
-        self.package_prefix = package_prefix
+        # self.package_prefix = package_prefix
 
     def init_trace_data(self):
         self.previous_event_return = False
@@ -243,72 +260,119 @@ class TraceProcessor(Thread):
         for g in grp.items():
             yield g
 
-    def nodes(self):
-        for func, calls in self.func_count.items():
-            if self.config.trace_filter(func):# zhangxingjun 
-                func_new = self.drop_prefix(func) # zhangxingjun 
-                yield self.stat_group_from_func(func, func_new,calls)
-
-    def edges(self):
-        # 不keep应该有两种，一是该点之后的都不保留，二是跳过该点，所以可以在参数config.trace_filter.exclude中
-        for src_func, dests in self.call_dict.items():
-            if src_func and self.config.trace_filter(src_func):
-                src_func_new = self.drop_prefix(src_func) # zhangxingjun 
-                for dst_func, calls in dests.items():
-                    if self.config.trace_filter(dst_func):
-                        dst_func_new = self.drop_prefix(dst_func) # zhangxingjun 
-                        edge = self.stat_group_from_func(dst_func, dst_func_new, calls)
-                        edge.src_func = src_func_new
-                        edge.dst_func = dst_func_new
-                        yield edge
-
     # def nodes(self):
     #     for func, calls in self.func_count.items():
-    #         # yield self.stat_group_from_func(func, calls)
-    #         func_new = self.drop_prefix(func) # zhangxingjun 
-    #         yield self.stat_group_from_func(func, func_new,calls)
+    #         if self.config.trace_filter(func):# zhangxingjun 
+    #             func_new = self.drop_prefix(func) # zhangxingjun 
+    #             yield self.stat_group_from_func(func, func_new,calls)
 
     # def edges(self):
     #     # 不keep应该有两种，一是该点之后的都不保留，二是跳过该点，所以可以在参数config.trace_filter.exclude中
     #     for src_func, dests in self.call_dict.items():
-    #         if src_func:
+    #         if src_func and self.config.trace_filter(src_func):
     #             src_func_new = self.drop_prefix(src_func) # zhangxingjun 
     #             for dst_func, calls in dests.items():
-    #                 # edge = self.stat_group_from_func(dst_func, calls)
-    #                 # edge.src_func = src_func
-    #                 # edge.dst_func = dst_func
-    #                 dst_func_new = self.drop_prefix(dst_func) # zhangxingjun 
-    #                 edge = self.stat_group_from_func(dst_func, dst_func_new, calls)
-    #                 edge.src_func = src_func_new
-    #                 edge.dst_func = dst_func_new
-    #                 yield edge
+    #                 if self.config.trace_filter(dst_func):
+    #                     dst_func_new = self.drop_prefix(dst_func) # zhangxingjun 
+    #                     edge = self.stat_group_from_func(dst_func, dst_func_new, calls)
+    #                     edge.src_func = src_func_new
+    #                     edge.dst_func = dst_func_new
+    #                     yield edge
 
-    # def stat_group_from_func(self, func, calls):
+    
+    # def stat_group_from_func(self, func, func_new, calls):
     #     stat_group = StatGroup()
-    #     stat_group.name = func
-    #     stat_group.group = self.config.trace_grouper(func)
+    #     stat_group.name = func_new
+    #     stat_group.group = self.config.trace_grouper(func_new)
     #     stat_group.calls = Stat(calls, self.func_count_max)
     #     stat_group.time = Stat(self.func_time.get(func, 0), self.func_time_max)
     #     stat_group.memory_in = Stat(self.func_memory_in.get(func, 0), self.func_memory_in_max)
     #     stat_group.memory_out = Stat(self.func_memory_in.get(func, 0), self.func_memory_in_max)
     #     return stat_group
+
+    def nodes(self):
+        for func, calls in self.func_count.items():
+            yield self.stat_group_from_func(func,calls)
+
+    def edges(self):
+        # 不keep应该有两种，一是该点之后的都不保留，二是跳过该点，所以可以在参数config.trace_filter.exclude中
+        for src_func, dests in self.call_dict.items():
+            for dst_func, calls in dests.items():
+                edge = self.stat_group_from_func(dst_func, calls)
+                edge.src_func = src_func
+                edge.dst_func = dst_func
+                yield edge
+
     
-    def stat_group_from_func(self, func, func_new, calls):
+    def stat_group_from_func(self, func, calls):
         stat_group = StatGroup()
-        stat_group.name = func_new
-        stat_group.group = self.config.trace_grouper(func_new)
+        stat_group.name = func
+        stat_group.group = self.config.trace_grouper(func)
         stat_group.calls = Stat(calls, self.func_count_max)
         stat_group.time = Stat(self.func_time.get(func, 0), self.func_time_max)
         stat_group.memory_in = Stat(self.func_memory_in.get(func, 0), self.func_memory_in_max)
         stat_group.memory_out = Stat(self.func_memory_in.get(func, 0), self.func_memory_in_max)
         return stat_group
 
+
+
     def drop_prefix(self, func):
-        l = len(self.package_prefix)
-        if func[0:l] ==  self.package_prefix: # 'pytorch_lightning.':
-            return func[l:]
+        l = len(self.config.package_prefix)
+        if func[0:l] ==  self.config.package_prefix: # 'pytorch_lightning.':
+            func = func[l:]
+        for s,c in self.config.func_name_prune.items():
+            if fnmatch(func, s):
+                t = func.split('.')[:-c]
+                return '.'.join(t)
         return func
 
+    def prune(self): # 对结果进行过滤 和 节点名字”掐头去尾“，  以及合并相同的节点
+        new_call_dict = defaultdict(lambda: defaultdict(int))
+        new_func_count = defaultdict(int)
+        new_func_time = defaultdict(float)
+        new_func_memory_in = defaultdict(int)
+
+        for func, calls in self.func_count.items():
+            if self.config.trace_filter(func):# zhangxingjun 
+                new_func = self.drop_prefix(func)
+                new_func_count[new_func] = new_func_count[new_func] + calls
+                new_func_time[new_func] = new_func_time[new_func] + self.func_time.get(func, 0)
+                new_func_memory_in[new_func] = new_func_memory_in[new_func] + self.func_memory_in.get(func, 0)
+
+        for src_func, dests in self.call_dict.items():
+            if src_func and self.config.trace_filter(src_func):
+                src_func_new = self.drop_prefix(src_func) # zhangxingjun 
+                for dst_func, calls in dests.items():
+                    if self.config.trace_filter(dst_func):
+                        dst_func_new = self.drop_prefix(dst_func) # zhangxingjun 
+                        new_call_dict[src_func_new][dst_func_new] = new_call_dict[src_func_new][dst_func_new] + calls
+        self.func_count = new_func_count
+        self.func_time = new_func_time
+        self.func_memory_in = new_func_memory_in
+        self.call_dict = new_call_dict
+
+
+    def save_func_name(self):
+        fh = open(self.config.full_func_name_file, 'w')
+        for func ,_ in self.func_count.items():
+            print(func, file=fh)
+        fh.close()
+
+    def save(self):
+        d = {
+            'func_count':self.func_count,
+            'func_time':self.func_time,
+            'func_memory_in':self.func_memory_in,
+            'call_dict':self.call_dict,
+        }
+        dill.dump(d, open(self.config.tracker_log,"wb")) # 张行军
+
+    def load(self):
+        d = dill.load(open(self.config.tracker_log,"rb"))
+        self.func_count = d['func_count']
+        self.func_time = d['func_time']
+        self.func_memory_in = d['func_memory_in']
+        self.call_dict = d['call_dict']
 
 
 class Stat:
